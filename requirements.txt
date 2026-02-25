@@ -1,0 +1,10 @@
+langgraph>=0.4
+langchain-core>=0.3  # 依赖pydantic会自动安装
+langchain-openai
+playwright
+diffusers
+transformers
+# torch gpu版本手动安装
+accelerate
+Pillow
+requests

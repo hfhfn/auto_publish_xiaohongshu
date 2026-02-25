@@ -1,0 +1,24 @@
+# Chrome profile (stores login session, cache, etc.)
+chrome_profile/
+
+# Generated output
+output/
+
+# Python
+__pycache__/
+*.pyc
+
+# Secrets
+AccessKey.txt
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# AI tools
+.serena/
+.claude/
+
+# Debug
+debug_raw_output.txt
