@@ -55,7 +55,7 @@ python main.py --topic "杭州西湖" --engine jimeng --skip-research
 
 ```
 ├── main.py                # 入口，支持完整运行和断点恢复
-├── graph.py               # LangGraph工作流（并行分支 + assemble_gallery汇合）
+├── graph.py               # LangGraph工作流（并行分支，无fan-in）
 ├── config.py              # 配置（API密钥通过.env加载）
 ├── .env.example           # 环境变量模板
 ├── nodes/

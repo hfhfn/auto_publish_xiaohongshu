@@ -39,16 +39,16 @@ python main.py --topic "杭州西湖" --engine jimeng --skip-research
 The project uses a **LangGraph state-machine workflow** defined in `graph.py`:
 
 ```
-START → research_destination → generate_content ─┬→ condense_content ─────────→ assemble_gallery → publish → END
-                                                  └→ search_images → img2img ─→ assemble_gallery
+START → research_destination → generate_content ─┬→ condense_content → END  (精简文案写入共享state)
+                                                  └→ search_images → img2img → assemble_gallery → publish → END
 ```
 
 - `condense_content` (text branch) and `search_images → img2img` (image branch) run **in parallel** after `generate_content`.
-- `assemble_gallery` is the **fan-in point** — it waits for both branches to complete before executing.
-- `publish` has only one predecessor (`assemble_gallery`), preventing duplicate invocations.
+- `condense_content` completes quickly and writes condensed title/content to shared state, then terminates. It does **not** fan-in to `assemble_gallery`.
+- `assemble_gallery` has a **single predecessor** (`img2img`), so it runs exactly once with all images available.
+- The `img2img` node is a unified dispatcher that internally calls `generate_image_jimeng` or `generate_image_zimage` based on the `engine` state field.
 
 - **State container:** `PublishState` (TypedDict in `graph.py`) — all nodes read from and write to this shared state dict.
-- **Routing:** `route_engine()` in `graph.py` conditionally routes to the selected image generation backend.
 - **Node pattern:** Each node in `nodes/` is a function taking `PublishState`, performing its work, and returning a dict of updated state fields.
 
 ### Nodes
@@ -59,8 +59,7 @@ START → research_destination → generate_content ─┬→ condense_content �
 | `generate_content` | `nodes/content_node.py` | Calls Zhipu GLM-4.5-flash (DeepSeek fallback) to produce title, content, tags, location, image prompts, and search queries as JSON |
 | `condense_content` | `nodes/content_node.py` | Validates title/content length limits, calls LLM to condense if over limit |
 | `search_images` | `nodes/image_search.py` | Brave + Tavily dual-engine image search, downloads candidates, GLM VLM quality scoring |
-| `img2img_jimeng` | `nodes/image_jimeng.py` | Cloud img2img via Volcano Engine API with V4 HMAC-SHA256 signed requests, async task polling |
-| `img2img_zimage` | `nodes/image_zimage.py` | Local img2img via StableDiffusionXLImg2ImgPipeline (diffusers), caches loaded model globally |
+| `img2img` | `graph.py` (dispatcher) | Unified img2img node — delegates to `generate_image_jimeng` (cloud, Volcano Engine) or `generate_image_zimage` (local, diffusers) based on `engine` state field |
 | `assemble_gallery` | `nodes/assemble_node.py` | Merges best originals + generated images in 2+1 grouped order, caps at 18 images |
 | `publish` | `nodes/publisher.py` | Playwright async — connects to Chrome debug port, uploads images, fills form, DeepSeek-powered collection management, publishes |
 

@@ -177,6 +177,28 @@ def _get_ref_image_base64(image_path: str) -> str:
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
+_MAX_DIMENSION = 2048  # 生成图最大边长，避免文件过大被平台拒绝
+
+
+def _save_as_jpeg(raw_bytes: bytes, path: Path):
+    """将任意格式的图片字节转换为真正的JPEG并保存。
+
+    火山引擎API返回的base64数据实际可能是PNG格式，
+    直接以.jpg扩展名保存会导致格式与扩展名不匹配，
+    小红书上传组件会静默拒绝此类文件。
+    """
+    from PIL import Image as PILImage
+    import io
+
+    img = PILImage.open(io.BytesIO(raw_bytes))
+    # 限制最大尺寸，避免文件过大
+    if img.width > _MAX_DIMENSION or img.height > _MAX_DIMENSION:
+        img.thumbnail((_MAX_DIMENSION, _MAX_DIMENSION))
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    img.save(path, format="JPEG", quality=90)
+
+
 _CLEANUP_PREFIX = "High quality realistic photograph. Remove all text overlays, watermarks, logos, advertisements and any location name text. "
 
 
@@ -232,14 +254,14 @@ def generate_image_jimeng(state: dict) -> dict:
             img_resp = requests.get(img_url, timeout=30)
             img_resp.raise_for_status()
             path = task_dir / f"gen_{i}_url_{j}.jpg"
-            path.write_bytes(img_resp.content)
+            _save_as_jpeg(img_resp.content, path)
             generated_paths.append(str(path))
             print(f"    ✅ 图片已通过URL下载保存: {path.name}")
 
         # 处理Base64解析
         for j, b64_str in enumerate(base64s):
             path = task_dir / f"gen_{i}_b64_{j}.jpg"
-            path.write_bytes(base64.b64decode(b64_str))
+            _save_as_jpeg(base64.b64decode(b64_str), path)
             generated_paths.append(str(path))
             print(f"    ✅ 图片已通过Base64解码保存: {path.name}")
 

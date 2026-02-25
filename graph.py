@@ -41,17 +41,22 @@ class PublishState(TypedDict):
     publish_success: bool
 
 
-def route_engine(state: PublishState) -> str:
-    """条件路由：根据engine选择图生图节点"""
-    return state["engine"]
+def img2img(state: PublishState) -> dict:
+    """统一图生图节点：根据engine字段分派到对应引擎"""
+    engine = state.get("engine", "jimeng")
+    if engine == "zimage":
+        return generate_image_zimage(state)
+    return generate_image_jimeng(state)
 
 
 def build_graph() -> StateGraph:
     """构建LangGraph工作流
 
-    并行流水线（condense_content 与图片搜索并行，assemble_gallery 做汇合点）:
-        research → generate_content ─┬→ condense_content ─────────→ assemble_gallery → publish
-                                     └→ search_images → img2img ─→ assemble_gallery
+    并行流水线（condense_content 与图片分支并行，但不做 fan-in）:
+        research → generate_content ─┬→ condense_content → END  (精简文案写入共享state)
+                                     └→ search_images → img2img → assemble_gallery → publish → END
+    condense_content 几秒即完成，图片流水线需数分钟，
+    publish 执行时 condense_content 的结果早已写入 state。
     """
     graph = StateGraph(PublishState)
 
@@ -60,8 +65,7 @@ def build_graph() -> StateGraph:
     graph.add_node("generate_content", generate_content)
     graph.add_node("condense_content", condense_content)
     graph.add_node("search_images", search_images)
-    graph.add_node("img2img_jimeng", generate_image_jimeng)
-    graph.add_node("img2img_zimage", generate_image_zimage)
+    graph.add_node("img2img", img2img)
     graph.add_node("assemble_gallery", assemble_gallery)
     graph.add_node("publish", publish_to_xiaohongshu)
 
@@ -69,26 +73,16 @@ def build_graph() -> StateGraph:
     graph.add_edge(START, "research_destination")
     graph.add_edge("research_destination", "generate_content")
 
-    # 并行分支：文案精简 和 图片搜索同时执行
+    # 并行分支：文案精简 和 图片搜索同时启动
     graph.add_edge("generate_content", "condense_content")
     graph.add_edge("generate_content", "search_images")
 
-    # condense_content 完成后汇入 assemble_gallery
-    graph.add_edge("condense_content", "assemble_gallery")
+    # 文案分支：精简完成后直接结束（结果已写入共享state，publish能读到）
+    graph.add_edge("condense_content", END)
 
-    # 图片分支：搜索 → 条件路由 → 图生图 → 汇入 assemble_gallery
-    graph.add_conditional_edges(
-        "search_images",
-        route_engine,
-        {
-            "jimeng": "img2img_jimeng",
-            "zimage": "img2img_zimage",
-        },
-    )
-    graph.add_edge("img2img_jimeng", "assemble_gallery")
-    graph.add_edge("img2img_zimage", "assemble_gallery")
-
-    # 单一路径到 publish（assemble_gallery 等待两条分支都完成后才执行）
+    # 图片分支：搜索 → 图生图 → 组装 → 发布（唯一通向 publish 的路径）
+    graph.add_edge("search_images", "img2img")
+    graph.add_edge("img2img", "assemble_gallery")
     graph.add_edge("assemble_gallery", "publish")
     graph.add_edge("publish", END)
 

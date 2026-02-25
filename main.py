@@ -75,8 +75,8 @@ def _run_full_pipeline(args):
         initial_state["research_context"] = "skip"
 
     print("\n  流水线步骤:")
-    print("  1. 目的地调研 → 2. 生成文案 →┬→ 3a. 精简文案 ──────────→ 6. 组装画廊 → 7. 发布")
-    print("                               └→ 3b. 搜索图片 → 5. 图生图 ┘")
+    print("  1. 目的地调研 → 2. 生成文案 ─┬→ 3a. 精简文案 → END (写入共享state)")
+    print("                               └→ 3b. 搜索图片 → 4. 图生图 → 5. 组装画廊 → 6. 发布")
     print()
 
     # 使用 stream 逐节点执行，每步保存状态
