@@ -8,3 +8,4 @@ transformers
 accelerate
 Pillow
 requests
+python-dotenv

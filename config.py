@@ -3,9 +3,13 @@
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # ======================== 项目路径 ========================
 PROJECT_DIR = Path(__file__).parent
+
+# 加载 .env 文件中的环境变量
+load_dotenv(PROJECT_DIR / ".env")
 OUTPUT_DIR = PROJECT_DIR / "output"
 REF_IMAGE_DIR = OUTPUT_DIR / "ref"        # 搜索到的真实景点参考图
 GEN_IMAGE_DIR = OUTPUT_DIR / "generated"  # 图生图生成的图片
