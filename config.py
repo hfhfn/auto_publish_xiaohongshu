@@ -49,6 +49,10 @@ BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
 BRAVE_IMAGE_SEARCH_URL = "https://api.search.brave.com/res/v1/images/search"
 BRAVE_WEB_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
+# ======================== Tavily Search ========================
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
+TAVILY_SEARCH_URL = "https://api.tavily.com/search"  # 已改用 tavily-python SDK，此URL保留备用
+
 # ======================== DeepSeek (备用) ========================
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 DEEPSEEK_MODEL = "deepseek-chat"

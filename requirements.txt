@@ -9,3 +9,4 @@ accelerate
 Pillow
 requests
 python-dotenv
+tavily-python

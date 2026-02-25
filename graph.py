@@ -1,11 +1,11 @@
 """
-LangGraph 工作流定义 — 串联目的地调研、文案生成、图片搜索、图生图、画廊组装、发布六个节点
+LangGraph 工作流定义 — 串联目的地调研、文案生成、文案精简、图片搜索、图生图、画廊组装、发布
 """
 from typing import TypedDict, Literal, Annotated
 from langgraph.graph import StateGraph, START, END
 
 from nodes.research_node import research_destination
-from nodes.content_node import generate_content
+from nodes.content_node import generate_content, condense_content
 from nodes.image_search import search_images
 from nodes.image_jimeng import generate_image_jimeng
 from nodes.image_zimage import generate_image_zimage
@@ -47,24 +47,36 @@ def route_engine(state: PublishState) -> str:
 
 
 def build_graph() -> StateGraph:
-    """构建LangGraph工作流"""
+    """构建LangGraph工作流
+
+    并行流水线（condense_content 与图片搜索并行，assemble_gallery 做汇合点）:
+        research → generate_content ─┬→ condense_content ─────────→ assemble_gallery → publish
+                                     └→ search_images → img2img ─→ assemble_gallery
+    """
     graph = StateGraph(PublishState)
 
     # 添加节点
     graph.add_node("research_destination", research_destination)
     graph.add_node("generate_content", generate_content)
+    graph.add_node("condense_content", condense_content)
     graph.add_node("search_images", search_images)
     graph.add_node("img2img_jimeng", generate_image_jimeng)
     graph.add_node("img2img_zimage", generate_image_zimage)
     graph.add_node("assemble_gallery", assemble_gallery)
     graph.add_node("publish", publish_to_xiaohongshu)
 
-    # 定义边
+    # 调研 → 文案生成
     graph.add_edge(START, "research_destination")
     graph.add_edge("research_destination", "generate_content")
+
+    # 并行分支：文案精简 和 图片搜索同时执行
+    graph.add_edge("generate_content", "condense_content")
     graph.add_edge("generate_content", "search_images")
 
-    # 条件路由：选择图生图引擎
+    # condense_content 完成后汇入 assemble_gallery
+    graph.add_edge("condense_content", "assemble_gallery")
+
+    # 图片分支：搜索 → 条件路由 → 图生图 → 汇入 assemble_gallery
     graph.add_conditional_edges(
         "search_images",
         route_engine,
@@ -73,11 +85,10 @@ def build_graph() -> StateGraph:
             "zimage": "img2img_zimage",
         },
     )
-
-    # 两个图生图节点都汇聚到画廊组装节点
     graph.add_edge("img2img_jimeng", "assemble_gallery")
     graph.add_edge("img2img_zimage", "assemble_gallery")
 
+    # 单一路径到 publish（assemble_gallery 等待两条分支都完成后才执行）
     graph.add_edge("assemble_gallery", "publish")
     graph.add_edge("publish", END)
 

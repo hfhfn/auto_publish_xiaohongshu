@@ -177,7 +177,7 @@ def _get_ref_image_base64(image_path: str) -> str:
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
-_CLEANUP_PREFIX = "High quality realistic photograph. Remove all text overlays, watermarks, logos and advertisements. "
+_CLEANUP_PREFIX = "High quality realistic photograph. Remove all text overlays, watermarks, logos, advertisements and any location name text. "
 
 
 def generate_image_jimeng(state: dict) -> dict:
@@ -185,6 +185,7 @@ def generate_image_jimeng(state: dict) -> dict:
     image_prompts = state.get("image_prompts", [])
     ref_for_gen = state.get("ref_for_gen", [])
     ref_paths = state.get("ref_image_paths", [])
+    topic = state.get("topic", "")
 
     if not image_prompts:
         image_prompts = [f"A stunning photo of {state['topic']}, realistic photography, 8K"]
@@ -194,7 +195,9 @@ def generate_image_jimeng(state: dict) -> dict:
     task_dir.mkdir(parents=True, exist_ok=True)
 
     for i, prompt in enumerate(image_prompts):
-        full_prompt = _CLEANUP_PREFIX + prompt
+        # 在prompt中强调目标地点，要求去除所有文字和其他地名
+        location_hint = f" This photo is specifically about {topic}. " if topic else ""
+        full_prompt = _CLEANUP_PREFIX + location_hint + prompt
         print(f"  🎨 即梦4.0 图生图 [{i+1}/{len(image_prompts)}]: {prompt[:50]}...")
 
         # 使用专门的img2img参考图（与发布原图不同，保持多样性）
